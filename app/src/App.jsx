@@ -109,7 +109,7 @@ export default function App() {
   // Fetch data
   const fetchData = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/clients');
+      const response = await fetch(`/api/clients`);
       if (!response.ok) throw new Error('Failed to fetch');
       const result = await response.json();
       setData(result);
@@ -161,7 +161,7 @@ export default function App() {
 
   const updateClientStatus = async (clientToUpdate, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/clients/update`, {
+      const response = await fetch(`/api/clients/update`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

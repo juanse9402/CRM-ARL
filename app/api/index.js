@@ -3,16 +3,12 @@ import cors from 'cors';
 import xlsx from 'xlsx';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const EXCEL_PATH = path.join(__dirname, '..', 'Empresas Caro.xlsx');
+const EXCEL_PATH = path.join(process.cwd(), 'data', 'Empresas Caro.xlsx');
 
 // Helper function to read the Excel file
 const readExcel = () => {
@@ -57,13 +53,11 @@ app.put('/api/clients/update', (req, res) => {
 
     const data = readExcel();
     
-    // Buscar usando identificadores únicos (Contrato y Nombre) o fallback al ID (índice)
     let rowIndex = data.findIndex(row => 
       row['Contrato ARL DESC'] === contrato && 
       row['Empresa Nombre Comercial'] === nombre
     );
 
-    // Si no se encuentra por nombre/contrato, intentamos con el ID interno como respaldo
     if (rowIndex === -1 && id !== undefined && id >= 0 && id < data.length) {
       rowIndex = id;
     }
@@ -72,7 +66,6 @@ app.put('/api/clients/update', (req, res) => {
       return res.status(404).json({ error: 'Client not found' });
     }
 
-    // Update 'Estado de Atención'
     data[rowIndex]['Estado de Atención'] = estado;
     writeExcel(data);
 
@@ -83,7 +76,5 @@ app.put('/api/clients/update', (req, res) => {
   }
 });
 
-const PORT = 3001;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// Export the Express API for Vercel
+export default app;
