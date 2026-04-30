@@ -1,0 +1,44 @@
+Documento de Requerimientos: CRM de Control y Seguimiento ARL
+1. Definición del Proyecto
+Crear una aplicación web de gestión (Dashboard + Consulta) conectada a una base de datos de Google Sheets. El sistema permitirá la búsqueda masiva de clientes, visualización de estados y contacto directo vía WhatsApp para el mercado colombiano.
+2. Requerimientos Técnicos (Backend y Datos)
+Fuente de Datos: Google Sheets (actuando como base de datos en tiempo real).
+Sincronización: Lectura y escritura bidireccional (para actualizar el "Estado de Atención").
+Lógica de Teléfonos (Colombia):
+El sistema debe validar los campos Telefono 1 ID y Telefono 2 ID.
+Si el número tiene 10 dígitos, anteponer automáticamente el código de país 57.
+Limpiar caracteres especiales (espacios, guiones, paréntesis) antes de ejecutar la acción de WhatsApp.
+Motor de Búsqueda: Implementar un buscador "Fuzzy Search" (búsqueda aproximada) que filtre por cualquier columna simultáneamente.
+3. Requerimientos Funcionales (Acciones del Usuario)
+Módulo de Consulta:
+Barra de búsqueda global (Nombre, Contrato, Municipio, etc.).
+Filtros rápidos por Estado de Atención y Tipo de abordaje.
+Vista de Detalle (Ficha de Cliente): Al hacer clic en un cliente, abrir un panel lateral (Side Panel) o Modal con toda la información.
+Acciones Directas:
+Botón WhatsApp 1 y 2: Abrir link https://wa.me/57XXXXXXXXXX con un mensaje predefinido (ej: "Hola, me pongo en contacto de la ARL para la empresa [Nombre Comercial]...").
+Botón Email: Abrir cliente de correo con el Email ID.
+Cambio de Estado: Dropdown para cambiar el Estado de Atención y que se guarde automáticamente en el Excel.
+Dashboard (Indicadores):
+Gráfico de torta/barras con el conteo de clientes por Estado de Atención.
+Contador total de clientes por MUNICIPIO.
+4. Requerimientos Visuales y UI/UX
+Estilo: Limpio, profesional, tipo "Saas Moderno".
+Paleta de Colores: Basada en tonos institucionales (Azul oscuro, gris claro y blanco).
+Estados Visuales:
+Usar etiquetas de colores (Badges) para la columna Estado de Atención:
+Pendiente: Amarillo.
+En Proceso: Azul.
+Finalizado/Atendido: Verde.
+No contactado: Rojo.
+Tabla de Datos: Implementar "Sticky Header" (encabezado fijo) y paginación para evitar carga lenta de datos.
+Responsividad: La aplicación debe ser 100% móvil-friendly, ya que el contacto por WhatsApp se realiza frecuentemente desde celulares.
+5. Mapeo de Columnas para Antigravity
+Para que la IA no confunda los términos, usaremos este mapeo:
+ID_Contrato: Contrato ARL DESC
+Nombre_Empresa: Empresa Nombre Comercial
+Contacto_1: Telefono 1 ID
+Contacto_2: Telefono 2 ID
+Correo: Email ID
+Estado: Estado de Atención
+Ciudad: MUNICIPIO
+Abordaje: Tipo de abordaje
