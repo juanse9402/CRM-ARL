@@ -12,6 +12,12 @@ const formatPhoneForWhatsApp = (phoneStr) => {
   return cleanNumber;
 };
 
+const isValidWhatsAppNumber = (phoneStr) => {
+  if (!phoneStr) return false;
+  let cleanNumber = String(phoneStr).replace(/[\s\-\(\)]/g, '');
+  return cleanNumber.length === 10 && cleanNumber.startsWith('3');
+};
+
 // Colors for badges
 const getStatusColor = (status) => {
   const s = String(status).toLowerCase();
@@ -379,15 +385,22 @@ export default function App() {
                   {selectedClient['Telefono 1 ID'] && (
                     <div className="flex flex-col space-y-2">
                       <span className="text-xs text-slate-500">Teléfono 1: {selectedClient['Telefono 1 ID']}</span>
-                      <a 
-                        href={`https://wa.me/${formatPhoneForWhatsApp(selectedClient['Telefono 1 ID'])}?text=${encodeURIComponent(`Hola, me pongo en contacto de la ARL para la empresa ${selectedClient['Empresa Nombre Comercial']}...`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#25D366] hover:bg-[#128C7E] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-colors"
-                      >
-                        <Phone className="w-4 h-4 mr-2" />
-                        Contactar WhatsApp 1
-                      </a>
+                      {isValidWhatsAppNumber(selectedClient['Telefono 1 ID']) ? (
+                        <a 
+                          href={`https://wa.me/${formatPhoneForWhatsApp(selectedClient['Telefono 1 ID'])}?text=${encodeURIComponent(`Hola, me pongo en contacto de la ARL para la empresa ${selectedClient['Empresa Nombre Comercial']}...`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#25D366] hover:bg-[#128C7E] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-colors"
+                        >
+                          <Phone className="w-4 h-4 mr-2" />
+                          Contactar WhatsApp 1
+                        </a>
+                      ) : (
+                        <button disabled className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-slate-400 bg-slate-100 cursor-not-allowed">
+                          <Phone className="w-4 h-4 mr-2 opacity-50" />
+                          Número no válido para WhatsApp
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -395,15 +408,22 @@ export default function App() {
                   {selectedClient['Telefono 2 ID'] && (
                     <div className="flex flex-col space-y-2 mt-4">
                       <span className="text-xs text-slate-500">Teléfono 2: {selectedClient['Telefono 2 ID']}</span>
-                      <a 
-                        href={`https://wa.me/${formatPhoneForWhatsApp(selectedClient['Telefono 2 ID'])}?text=${encodeURIComponent(`Hola, me pongo en contacto de la ARL para la empresa ${selectedClient['Empresa Nombre Comercial']}...`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#25D366] hover:bg-[#128C7E] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-colors"
-                      >
-                        <Phone className="w-4 h-4 mr-2" />
-                        Contactar WhatsApp 2
-                      </a>
+                      {isValidWhatsAppNumber(selectedClient['Telefono 2 ID']) ? (
+                        <a 
+                          href={`https://wa.me/${formatPhoneForWhatsApp(selectedClient['Telefono 2 ID'])}?text=${encodeURIComponent(`Hola, me pongo en contacto de la ARL para la empresa ${selectedClient['Empresa Nombre Comercial']}...`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#25D366] hover:bg-[#128C7E] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-colors"
+                        >
+                          <Phone className="w-4 h-4 mr-2" />
+                          Contactar WhatsApp 2
+                        </a>
+                      ) : (
+                        <button disabled className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-slate-400 bg-slate-100 cursor-not-allowed">
+                          <Phone className="w-4 h-4 mr-2 opacity-50" />
+                          Número no válido para WhatsApp
+                        </button>
+                      )}
                     </div>
                   )}
 
