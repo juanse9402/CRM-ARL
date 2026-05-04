@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, Phone, Mail, ChevronLeft, ChevronRight, BarChart3, Users, Building, Activity, X } from 'lucide-react';
 import clsx from 'clsx';
+import { supabase } from './supabase';
+
+// Helper to get values robustly in case column names have slight variations
+const getVal = (obj, key) => {
+  if (obj === null || obj === undefined) return null;
+  if (obj[key] !== undefined) return obj[key];
+  const normalizedKey = key.toLowerCase().replace(/[\s\/]/g, '_');
+  for (let k of Object.keys(obj)) {
+    if (k.toLowerCase().replace(/[\s\/]/g, '_') === normalizedKey) {
+      return obj[k];
+    }
+  }
+  return null;
+};
 
 // Format phone number according to requirements
 const formatPhoneForWhatsApp = (phoneStr) => {
@@ -18,24 +32,23 @@ const isValidWhatsAppNumber = (phoneStr) => {
   return cleanNumber.length === 10 && cleanNumber.startsWith('3');
 };
 
-// Colors for badges
+// Colors for badges - updated for new states
 const getStatusColor = (status) => {
-  const s = String(status).toLowerCase();
+  const s = String(status || '').toLowerCase();
   if (s.includes('pendiente')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
   if (s.includes('proceso')) return 'bg-blue-100 text-blue-800 border-blue-200';
-  if (s.includes('finalizado') || s.includes('atendido')) return 'bg-green-100 text-green-800 border-green-200';
+  if (s.includes('atendido')) return 'bg-green-100 text-green-800 border-green-200';
   if (s.includes('no contactado')) return 'bg-red-100 text-red-800 border-red-200';
   return 'bg-gray-100 text-gray-800 border-gray-200';
 };
 
 const Dashboard = ({ data }) => {
-  // Calculate stats
   const totalClients = data.length;
   
   const statusCounts = useMemo(() => {
     const counts = {};
     data.forEach(client => {
-      const status = client['Estado de Atención'] || 'Sin Estado';
+      const status = getVal(client, 'estado_de_atencion') || 'Sin Estado';
       counts[status] = (counts[status] || 0) + 1;
     });
     return counts;
@@ -44,11 +57,10 @@ const Dashboard = ({ data }) => {
   const cityCounts = useMemo(() => {
     const counts = {};
     data.forEach(client => {
-      const city = client['MUNICIPIO'] || 'Sin Municipio';
+      const city = getVal(client, 'municipio') || 'Sin Municipio';
       counts[city] = (counts[city] || 0) + 1;
     });
-    // sort cities by count desc
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5); // top 5
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [data]);
 
   return (
@@ -103,7 +115,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Filtering and Pagination state
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [approachFilter, setApproachFilter] = useState('');
@@ -112,17 +123,15 @@ export default function App() {
 
   const [selectedClient, setSelectedClient] = useState(null);
 
-  // Fetch data
   const fetchData = async () => {
     try {
-      const response = await fetch(`/api/clients`);
-      if (!response.ok) throw new Error('Failed to fetch');
-      const result = await response.json();
-      setData(result);
+      const { data: clients, error } = await supabase.from('clientes').select('*');
+      if (error) throw error;
+      setData(clients || []);
       setLoading(false);
     } catch (err) {
       console.error(err);
-      setError('No se pudo conectar a la base de datos local. Asegúrate de ejecutar el servidor node (node server.js).');
+      setError('Error al conectar con Supabase. Verifica tu conexión.');
       setLoading(false);
     }
   };
@@ -131,65 +140,71 @@ export default function App() {
     fetchData();
   }, []);
 
-  // Get unique values for filters
-  const uniqueStatuses = [...new Set(data.map(item => item['Estado de Atención']).filter(Boolean))];
-  const uniqueApproaches = [...new Set(data.map(item => item['Tipo de abordaje']).filter(Boolean))];
+  const uniqueStatuses = [...new Set(data.map(item => getVal(item, 'estado_de_atencion')).filter(Boolean))];
+  const uniqueApproaches = [...new Set(data.map(item => getVal(item, 'tipo_de_abordaje')).filter(Boolean))];
 
-  // Filtering Logic (Fuzzy-ish Search)
   const filteredData = useMemo(() => {
     return data.filter(client => {
       let matchesSearch = true;
       if (searchTerm) {
         const lowerSearch = searchTerm.toLowerCase();
-        matchesSearch = Object.values(client).some(val => 
-          String(val).toLowerCase().includes(lowerSearch)
-        );
+        // Specifically check empresa_nombre_comercial and contrato_arl_desc as requested
+        const empresa = String(getVal(client, 'empresa_nombre_comercial') || '').toLowerCase();
+        const contrato = String(getVal(client, 'contrato_arl_desc') || '').toLowerCase();
+        matchesSearch = empresa.includes(lowerSearch) || contrato.includes(lowerSearch);
       }
       
-      const matchesStatus = statusFilter ? client['Estado de Atención'] === statusFilter : true;
-      const matchesApproach = approachFilter ? client['Tipo de abordaje'] === approachFilter : true;
+      const statusValue = getVal(client, 'estado_de_atencion');
+      const approachValue = getVal(client, 'tipo_de_abordaje');
+
+      const matchesStatus = statusFilter ? statusValue === statusFilter : true;
+      const matchesApproach = approachFilter ? approachValue === approachFilter : true;
 
       return matchesSearch && matchesStatus && matchesApproach;
     });
   }, [data, searchTerm, statusFilter, approachFilter]);
 
-  // Pagination Logic
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredData.slice(start, start + itemsPerPage);
   }, [filteredData, currentPage]);
 
-  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, approachFilter]);
 
   const updateClientStatus = async (clientToUpdate, newStatus) => {
     try {
-      const response = await fetch(`/api/clients/update`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          id: clientToUpdate.id,
-          contrato: clientToUpdate['Contrato ARL DESC'],
-          nombre: clientToUpdate['Empresa Nombre Comercial'],
-          estado: newStatus 
-        })
-      });
-      if (response.ok) {
-        // Update local state immediately
-        setData(prev => prev.map(c => c.id === clientToUpdate.id ? { ...c, 'Estado de Atención': newStatus } : c));
-        if (selectedClient && selectedClient.id === clientToUpdate.id) {
-          setSelectedClient({ ...selectedClient, 'Estado de Atención': newStatus });
-        }
-      } else {
-        alert('Error al actualizar el estado. Por favor verifica que el archivo de Excel esté cerrado.');
+      // Usar Supabase .update() con el id de la fila
+      // Asumimos que la columna en Supabase se llama estado_de_atencion o Estado de Atención
+      // Primero encontramos el nombre exacto de la columna estado en el objeto
+      let estadoKey = 'estado_de_atencion';
+      if (clientToUpdate['Estado de Atención'] !== undefined) estadoKey = 'Estado de Atención';
+
+      const updatePayload = { [estadoKey]: newStatus };
+      
+      const { error } = await supabase
+        .from('clientes')
+        .update(updatePayload)
+        .eq('id', clientToUpdate.id);
+
+      if (error) throw error;
+
+      setData(prev => prev.map(c => c.id === clientToUpdate.id ? { ...c, [estadoKey]: newStatus } : c));
+      if (selectedClient && selectedClient.id === clientToUpdate.id) {
+        setSelectedClient({ ...selectedClient, [estadoKey]: newStatus });
       }
     } catch (err) {
       console.error(err);
-      alert('Error de conexión al guardar.');
+      alert('Error al actualizar el estado en Supabase.');
     }
+  };
+
+  const getWhatsAppLink = (phone, empresaName) => {
+    const cleanPhone = formatPhoneForWhatsApp(phone);
+    const text = `Hola *${empresaName}* le escribimos de la ARL para realizar seguimiento...`;
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
   };
 
   return (
@@ -215,7 +230,6 @@ export default function App() {
         {!loading && !error && <Dashboard data={data} />}
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-          {/* Filters Bar */}
           <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 bg-slate-50">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -224,7 +238,7 @@ export default function App() {
               <input
                 type="text"
                 className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="Buscar por Nombre, Contrato, Municipio..."
+                placeholder="Buscar por Empresa o Contrato..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -251,19 +265,18 @@ export default function App() {
             </div>
           </div>
 
-          {/* Table */}
           <div className="overflow-x-auto relative" style={{ maxHeight: '600px' }}>
             {loading ? (
-              <div className="p-10 text-center text-slate-500">Cargando datos...</div>
+              <div className="p-10 text-center text-slate-500">Cargando datos de Supabase...</div>
             ) : (
               <table className="min-w-full divide-y divide-slate-200">
                 <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Contrato ARL</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Empresa</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Municipio</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Municipio</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Estado de Atención</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Abordaje</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Abordaje</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-100">
@@ -281,21 +294,21 @@ export default function App() {
                         className="hover:bg-blue-50/50 cursor-pointer transition-colors"
                       >
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">
-                          {client['Contrato ARL DESC'] || '-'}
+                          {getVal(client, 'contrato_arl_desc') || '-'}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-800 font-semibold max-w-xs truncate">
-                          {client['Empresa Nombre Comercial'] || '-'}
+                        <td className="px-6 py-4 text-sm text-slate-800 font-semibold max-w-[200px] sm:max-w-xs truncate">
+                          {getVal(client, 'empresa_nombre_comercial') || '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                          {client['MUNICIPIO'] || '-'}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 hidden sm:table-cell">
+                          {getVal(client, 'municipio') || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={clsx("px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border", getStatusColor(client['Estado de Atención']))}>
-                            {client['Estado de Atención'] || 'Sin Estado'}
+                          <span className={clsx("px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border", getStatusColor(getVal(client, 'estado_de_atencion')))}>
+                            {getVal(client, 'estado_de_atencion') || 'Sin Estado'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                          {client['Tipo de abordaje'] || '-'}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
+                          {getVal(client, 'tipo_de_abordaje') || '-'}
                         </td>
                       </tr>
                     ))
@@ -305,12 +318,11 @@ export default function App() {
             )}
           </div>
 
-          {/* Pagination */}
           <div className="bg-white px-4 py-3 border-t border-slate-200 flex items-center justify-between sm:px-6">
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div className="flex-1 flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-700">
-                  Mostrando <span className="font-medium">{filteredData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> a <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredData.length)}</span> de <span className="font-medium">{filteredData.length}</span> resultados
+                  <span className="hidden sm:inline">Mostrando </span><span className="font-medium">{filteredData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> - <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredData.length)}</span> de <span className="font-medium">{filteredData.length}</span>
                 </p>
               </div>
               <div>
@@ -357,8 +369,8 @@ export default function App() {
               
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">{selectedClient['Empresa Nombre Comercial'] || 'Sin Nombre'}</h3>
-                  <p className="text-sm text-slate-500 mt-1">Contrato: {selectedClient['Contrato ARL DESC'] || '-'}</p>
+                  <h3 className="text-xl font-bold text-slate-900">{getVal(selectedClient, 'empresa_nombre_comercial') || 'Sin Nombre'}</h3>
+                  <p className="text-sm text-slate-500 mt-1">Contrato: {getVal(selectedClient, 'contrato_arl_desc') || '-'}</p>
                 </div>
 
                 <div className="bg-slate-50 rounded-lg p-4 border border-slate-100 space-y-3">
@@ -366,14 +378,14 @@ export default function App() {
                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Estado de Atención</label>
                     <select
                       className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm border font-medium"
-                      value={selectedClient['Estado de Atención'] || ''}
+                      value={getVal(selectedClient, 'estado_de_atencion') || ''}
                       onChange={(e) => updateClientStatus(selectedClient, e.target.value)}
                     >
                       <option value="">Seleccionar...</option>
                       <option value="Pendiente">Pendiente</option>
                       <option value="En Proceso">En Proceso</option>
-                      <option value="Finalizado/Atendido">Finalizado/Atendido</option>
-                      <option value="No contactado">No contactado</option>
+                      <option value="Atendido">Atendido</option>
+                      <option value="No Contactado">No Contactado</option>
                     </select>
                   </div>
                 </div>
@@ -382,12 +394,12 @@ export default function App() {
                   <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-2">Información de Contacto</h4>
                   
                   {/* WhatsApp Botón 1 */}
-                  {selectedClient['Telefono 1 ID'] && (
+                  {getVal(selectedClient, 'telefono_1_id') && (
                     <div className="flex flex-col space-y-2">
-                      <span className="text-xs text-slate-500">Teléfono 1: {selectedClient['Telefono 1 ID']}</span>
-                      {isValidWhatsAppNumber(selectedClient['Telefono 1 ID']) ? (
+                      <span className="text-xs text-slate-500">Teléfono 1: {getVal(selectedClient, 'telefono_1_id')}</span>
+                      {isValidWhatsAppNumber(getVal(selectedClient, 'telefono_1_id')) ? (
                         <a 
-                          href={`https://wa.me/${formatPhoneForWhatsApp(selectedClient['Telefono 1 ID'])}?text=${encodeURIComponent(`Hola, me pongo en contacto de la ARL para la empresa ${selectedClient['Empresa Nombre Comercial']}...`)}`}
+                          href={getWhatsAppLink(getVal(selectedClient, 'telefono_1_id'), getVal(selectedClient, 'empresa_nombre_comercial') || '')}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#25D366] hover:bg-[#128C7E] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-colors"
@@ -405,12 +417,12 @@ export default function App() {
                   )}
 
                   {/* WhatsApp Botón 2 */}
-                  {selectedClient['Telefono 2 ID'] && (
+                  {getVal(selectedClient, 'telefono_2_id') && (
                     <div className="flex flex-col space-y-2 mt-4">
-                      <span className="text-xs text-slate-500">Teléfono 2: {selectedClient['Telefono 2 ID']}</span>
-                      {isValidWhatsAppNumber(selectedClient['Telefono 2 ID']) ? (
+                      <span className="text-xs text-slate-500">Teléfono 2: {getVal(selectedClient, 'telefono_2_id')}</span>
+                      {isValidWhatsAppNumber(getVal(selectedClient, 'telefono_2_id')) ? (
                         <a 
-                          href={`https://wa.me/${formatPhoneForWhatsApp(selectedClient['Telefono 2 ID'])}?text=${encodeURIComponent(`Hola, me pongo en contacto de la ARL para la empresa ${selectedClient['Empresa Nombre Comercial']}...`)}`}
+                          href={getWhatsAppLink(getVal(selectedClient, 'telefono_2_id'), getVal(selectedClient, 'empresa_nombre_comercial') || '')}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#25D366] hover:bg-[#128C7E] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-colors"
@@ -428,11 +440,11 @@ export default function App() {
                   )}
 
                   {/* Email Botón */}
-                  {selectedClient['Email ID'] && (
+                  {getVal(selectedClient, 'email_id') && (
                     <div className="flex flex-col space-y-2 mt-4">
-                      <span className="text-xs text-slate-500">Correo: {selectedClient['Email ID']}</span>
+                      <span className="text-xs text-slate-500">Correo: {getVal(selectedClient, 'email_id')}</span>
                       <a 
-                        href={`mailto:${selectedClient['Email ID']}?subject=${encodeURIComponent(`Seguimiento ARL - ${selectedClient['Empresa Nombre Comercial']}`)}`}
+                        href={`mailto:${getVal(selectedClient, 'email_id')}?subject=${encodeURIComponent(`Seguimiento ARL - ${getVal(selectedClient, 'empresa_nombre_comercial')}`)}`}
                         className="inline-flex items-center justify-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                       >
                         <Mail className="w-4 h-4 mr-2 text-slate-400" />
@@ -447,23 +459,12 @@ export default function App() {
                   <dl className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                     <div className="sm:col-span-1">
                       <dt className="text-xs font-medium text-slate-500">Municipio</dt>
-                      <dd className="mt-1 text-sm text-slate-900">{selectedClient['MUNICIPIO'] || '-'}</dd>
+                      <dd className="mt-1 text-sm text-slate-900">{getVal(selectedClient, 'municipio') || '-'}</dd>
                     </div>
                     <div className="sm:col-span-1">
                       <dt className="text-xs font-medium text-slate-500">Tipo de Abordaje</dt>
-                      <dd className="mt-1 text-sm text-slate-900">{selectedClient['Tipo de abordaje'] || '-'}</dd>
+                      <dd className="mt-1 text-sm text-slate-900">{getVal(selectedClient, 'tipo_de_abordaje') || '-'}</dd>
                     </div>
-                    {/* Add more fields here as needed by checking object keys, let's just dump the rest except known keys */}
-                    {Object.entries(selectedClient).map(([key, value]) => {
-                      const hiddenKeys = ['id', 'Empresa Nombre Comercial', 'Contrato ARL DESC', 'Estado de Atención', 'Telefono 1 ID', 'Telefono 2 ID', 'Email ID', 'MUNICIPIO', 'Tipo de abordaje'];
-                      if (hiddenKeys.includes(key)) return null;
-                      return (
-                        <div key={key} className="sm:col-span-2">
-                          <dt className="text-xs font-medium text-slate-500 truncate" title={key}>{key}</dt>
-                          <dd className="mt-1 text-sm text-slate-900">{String(value || '-')}</dd>
-                        </div>
-                      )
-                    })}
                   </dl>
                 </div>
               </div>

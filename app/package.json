@@ -8,9 +8,10 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "concurrently \"npm run dev\" \"node local-server.js\""
+    "start": "vite"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.1",
     "clsx": "^2.1.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
