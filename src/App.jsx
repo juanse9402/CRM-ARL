@@ -32,9 +32,9 @@ const isValidWhatsAppNumber = (phoneStr) => {
   return cleanNumber.length === 10 && cleanNumber.startsWith('3');
 };
 
-// Colors for badges - updated for new states
 const getStatusColor = (status) => {
   const s = String(status || '').toLowerCase();
+  if (!s || s === 'sin estado' || s.includes('definir estado')) return 'bg-red-50 text-red-600 border-red-200 font-bold';
   if (s.includes('pendiente')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
   if (s.includes('proceso')) return 'bg-blue-100 text-blue-800 border-blue-200';
   if (s.includes('atendido')) return 'bg-green-100 text-green-800 border-green-200';
@@ -157,7 +157,11 @@ export default function App() {
       const statusValue = getVal(client, 'estado_de_atencion');
       const approachValue = getVal(client, 'tipo_de_abordaje');
 
-      const matchesStatus = statusFilter ? statusValue === statusFilter : true;
+      const matchesStatus = statusFilter 
+        ? (statusFilter === 'Sin Estado' 
+            ? (!statusValue || String(statusValue).trim() === '') 
+            : statusValue === statusFilter)
+        : true;
       const matchesApproach = approachFilter ? approachValue === approachFilter : true;
 
       return matchesSearch && matchesStatus && matchesApproach;
@@ -251,6 +255,7 @@ export default function App() {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="">Todos los Estados</option>
+                <option value="Sin Estado">Sin Estado</option>
                 {uniqueStatuses.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
 
@@ -303,8 +308,8 @@ export default function App() {
                           {getVal(client, 'municipio') || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={clsx("px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border", getStatusColor(getVal(client, 'estado_de_atencion')))}>
-                            {getVal(client, 'estado_de_atencion') || 'Sin Estado'}
+                          <span className={clsx("px-2.5 py-1 inline-flex text-xs leading-5 rounded-full border", getStatusColor(getVal(client, 'estado_de_atencion')))}>
+                            {getVal(client, 'estado_de_atencion') || '⚠️ Definir Estado'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
