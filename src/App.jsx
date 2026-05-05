@@ -34,12 +34,19 @@ const isValidWhatsAppNumber = (phoneStr) => {
 
 const getStatusColor = (status) => {
   const s = String(status || '').toLowerCase();
-  if (!s || s === 'sin estado' || s.includes('definir estado')) return 'bg-red-50 text-red-600 border-red-200 font-bold';
-  if (s.includes('pendiente')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-  if (s.includes('proceso')) return 'bg-blue-100 text-blue-800 border-blue-200';
-  if (s.includes('atendido')) return 'bg-green-100 text-green-800 border-green-200';
-  if (s.includes('no contactado')) return 'bg-red-100 text-red-800 border-red-200';
+  if (!s || s === 'sin estado' || s === 'sin gestión' || s.includes('definir estado')) return 'bg-red-50 text-red-600 border-red-200 font-bold';
+  if (s.includes('planificado')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+  if (s === 'seguimiento inicial') return 'bg-blue-100 text-blue-800 border-blue-200';
+  if (s === 'seguimiento avanzado') return 'bg-green-100 text-green-800 border-green-200';
   return 'bg-gray-100 text-gray-800 border-gray-200';
+};
+
+const getDaysPassed = (dateStr) => {
+  if (!dateStr) return 0;
+  const pastDate = new Date(dateStr);
+  const now = new Date();
+  const diffTime = now - pastDate;
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
 };
 
 const Dashboard = ({ data }) => {
@@ -158,8 +165,8 @@ export default function App() {
       const approachValue = getVal(client, 'tipo_de_abordaje');
 
       const matchesStatus = statusFilter 
-        ? (statusFilter === 'Sin Estado' 
-            ? (!statusValue || String(statusValue).trim() === '') 
+        ? (statusFilter === 'Sin gestión' 
+            ? (!statusValue || String(statusValue).trim() === '' || statusValue === 'Sin gestión') 
             : statusValue === statusFilter)
         : true;
       const matchesApproach = approachFilter ? approachValue === approachFilter : true;
@@ -186,7 +193,10 @@ export default function App() {
       let estadoKey = 'estado_de_atencion';
       if (clientToUpdate['Estado de Atención'] !== undefined) estadoKey = 'Estado de Atención';
 
-      const updatePayload = { [estadoKey]: newStatus };
+      const updatePayload = { 
+        [estadoKey]: newStatus,
+        fecha_cambio_estado: new Date().toISOString()
+      };
       
       const { error } = await supabase
         .from('clientes')
@@ -195,9 +205,9 @@ export default function App() {
 
       if (error) throw error;
 
-      setData(prev => prev.map(c => c.id === clientToUpdate.id ? { ...c, [estadoKey]: newStatus } : c));
+      setData(prev => prev.map(c => c.id === clientToUpdate.id ? { ...c, [estadoKey]: newStatus, fecha_cambio_estado: updatePayload.fecha_cambio_estado } : c));
       if (selectedClient && selectedClient.id === clientToUpdate.id) {
-        setSelectedClient({ ...selectedClient, [estadoKey]: newStatus });
+        setSelectedClient({ ...selectedClient, [estadoKey]: newStatus, fecha_cambio_estado: updatePayload.fecha_cambio_estado });
       }
     } catch (err) {
       console.error(err);
@@ -205,9 +215,17 @@ export default function App() {
     }
   };
 
-  const getWhatsAppLink = (phone, empresaName) => {
+  const getWhatsAppLink = (phone, empresaName, status) => {
     const cleanPhone = formatPhoneForWhatsApp(phone);
-    const text = `Hola *${empresaName}* le escribimos de la ARL para realizar seguimiento...`;
+    const s = String(status || '').toLowerCase();
+    let text = `Hola, ${empresaName}. Le escribimos de la ARL para realizar seguimiento...`;
+
+    if (s === 'planificado') {
+      text = `Hola, ${empresaName}. Habla Carolina Lozada, prevencionista de ARL SURA. Me contacto para coordinar una reunión para revisar necesidades en seguridad y salud en el trabajo y definir el plan de trabajo con su empresa. Quedo atenta para programarla según su disponibilidad.`;
+    } else if (s === 'seguimiento inicial' || s === 'seguimiento avanzado') {
+      text = `Hola, ${empresaName}. Me encuentro realizando seguimiento al plan de trabajo acordado con ARL SURA y validando su avance. Si tienen actividades pendientes o requieren apoyo, quedo atenta para gestionarlo.`;
+    }
+
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
   };
 
@@ -255,8 +273,10 @@ export default function App() {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="">Todos los Estados</option>
-                <option value="Sin Estado">Sin Estado</option>
-                {uniqueStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                <option value="Sin gestión">Sin gestión</option>
+                <option value="Planificado">Planificado</option>
+                <option value="Seguimiento inicial">Seguimiento inicial</option>
+                <option value="Seguimiento avanzado">Seguimiento avanzado</option>
               </select>
 
               <select
@@ -309,8 +329,19 @@ export default function App() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={clsx("px-2.5 py-1 inline-flex text-xs leading-5 rounded-full border", getStatusColor(getVal(client, 'estado_de_atencion')))}>
-                            {getVal(client, 'estado_de_atencion') || '⚠️ Definir Estado'}
+                            {getVal(client, 'estado_de_atencion') || '⚠️ Sin gestión'}
                           </span>
+                          {(() => {
+                            const status = String(getVal(client, 'estado_de_atencion') || '').toLowerCase();
+                            const days = getDaysPassed(getVal(client, 'fecha_cambio_estado'));
+                            if (status === 'planificado' && days > 90) {
+                              return <div className="mt-1 text-xs text-red-600 font-bold bg-red-50 p-1 rounded">⚠️ Pasar a Seg. Inicial (+90d)</div>;
+                            }
+                            if (status === 'seguimiento inicial' && days > 90) {
+                              return <div className="mt-1 text-xs text-red-600 font-bold bg-red-50 p-1 rounded">⚠️ Pasar a Seg. Avanzado (+90d)</div>;
+                            }
+                            return null;
+                          })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
                           {getVal(client, 'tipo_de_abordaje') || '-'}
@@ -387,11 +418,16 @@ export default function App() {
                       onChange={(e) => updateClientStatus(selectedClient, e.target.value)}
                     >
                       <option value="">Seleccionar...</option>
-                      <option value="Pendiente">Pendiente</option>
-                      <option value="En Proceso">En Proceso</option>
-                      <option value="Atendido">Atendido</option>
-                      <option value="No Contactado">No Contactado</option>
+                      <option value="Sin gestión">Sin gestión</option>
+                      <option value="Planificado">Planificado</option>
+                      <option value="Seguimiento inicial">Seguimiento inicial</option>
+                      <option value="Seguimiento avanzado">Seguimiento avanzado</option>
                     </select>
+                    {getVal(selectedClient, 'fecha_cambio_estado') && (
+                      <p className="text-xs text-slate-500 mt-2 font-medium">
+                        ⏱️ Días en este estado: <span className="text-slate-800 font-bold">{getDaysPassed(getVal(selectedClient, 'fecha_cambio_estado'))}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -404,7 +440,7 @@ export default function App() {
                       <span className="text-xs text-slate-500">Teléfono 1: {getVal(selectedClient, 'telefono_1_id')}</span>
                       {isValidWhatsAppNumber(getVal(selectedClient, 'telefono_1_id')) ? (
                         <a 
-                          href={getWhatsAppLink(getVal(selectedClient, 'telefono_1_id'), getVal(selectedClient, 'empresa_nombre_comercial') || '')}
+                          href={getWhatsAppLink(getVal(selectedClient, 'telefono_1_id'), getVal(selectedClient, 'empresa_nombre_comercial') || '', getVal(selectedClient, 'estado_de_atencion'))}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#25D366] hover:bg-[#128C7E] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-colors"
@@ -427,7 +463,7 @@ export default function App() {
                       <span className="text-xs text-slate-500">Teléfono 2: {getVal(selectedClient, 'telefono_2_id')}</span>
                       {isValidWhatsAppNumber(getVal(selectedClient, 'telefono_2_id')) ? (
                         <a 
-                          href={getWhatsAppLink(getVal(selectedClient, 'telefono_2_id'), getVal(selectedClient, 'empresa_nombre_comercial') || '')}
+                          href={getWhatsAppLink(getVal(selectedClient, 'telefono_2_id'), getVal(selectedClient, 'empresa_nombre_comercial') || '', getVal(selectedClient, 'estado_de_atencion'))}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#25D366] hover:bg-[#128C7E] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-colors"
