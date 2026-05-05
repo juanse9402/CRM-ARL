@@ -644,7 +644,25 @@ export default function App() {
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-2">Información de Contacto</h4>
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Información de Contacto</h4>
+                    <button 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        setEditingContactClient(selectedClient); 
+                        setEditForm({ 
+                          telefono_1_id: getVal(selectedClient, 'telefono_1_id') || '', 
+                          telefono_2_id: getVal(selectedClient, 'telefono_2_id') || '', 
+                          email_id: getVal(selectedClient, 'email_id') || '',
+                          estado_de_atencion: getVal(selectedClient, 'estado_de_atencion') || ''
+                        });
+                      }}
+                      className="text-[#0033A0] hover:text-blue-800 p-1.5 rounded-md hover:bg-blue-50 transition-colors flex items-center text-xs font-bold"
+                      title="Editar Contacto"
+                    >
+                      <Pencil className="w-3.5 h-3.5 mr-1" /> Editar
+                    </button>
+                  </div>
                   
                   {/* WhatsApp Botón 1 */}
                   {getVal(selectedClient, 'telefono_1_id') && (
