@@ -52,65 +52,102 @@ const getDaysPassed = (dateStr) => {
 const Dashboard = ({ data }) => {
   const totalClients = data.length;
   
+  const sinGestionCount = data.filter(c => {
+    const s = String(getVal(c, 'estado_de_atencion') || '').toLowerCase();
+    return !s || s === 'sin estado' || s === 'sin gestión' || s.includes('definir estado');
+  }).length;
+  
+  const alertaCount = data.filter(c => {
+    const status = String(getVal(c, 'estado_de_atencion') || '').toLowerCase();
+    const days = getDaysPassed(getVal(c, 'fecha_cambio_estado'));
+    return (status === 'planificado' || status === 'seguimiento inicial') && days > 90;
+  }).length;
+  
+  const gestionActivaCount = data.filter(c => {
+    const s = String(getVal(c, 'estado_de_atencion') || '').toLowerCase();
+    return s.includes('planificado') || s.includes('seguimiento');
+  }).length;
+
   const statusCounts = useMemo(() => {
-    const counts = {};
+    const counts = {
+      'Sin gestión': 0,
+      'Planificado': 0,
+      'Seguimiento inicial': 0,
+      'Seguimiento avanzado': 0
+    };
     data.forEach(client => {
-      const status = getVal(client, 'estado_de_atencion') || 'Sin Estado';
-      counts[status] = (counts[status] || 0) + 1;
+      const s = String(getVal(client, 'estado_de_atencion') || '').toLowerCase();
+      if (s.includes('avanzado')) counts['Seguimiento avanzado']++;
+      else if (s.includes('inicial')) counts['Seguimiento inicial']++;
+      else if (s.includes('planificado')) counts['Planificado']++;
+      else counts['Sin gestión']++;
     });
     return counts;
   }, [data]);
 
-  const cityCounts = useMemo(() => {
-    const counts = {};
-    data.forEach(client => {
-      const city = getVal(client, 'municipio') || 'Sin Municipio';
-      counts[city] = (counts[city] || 0) + 1;
-    });
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  }, [data]);
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center space-x-4">
-        <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-          <Users className="w-6 h-6" />
+    <div className="space-y-6 mb-8">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Empresas */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col relative overflow-hidden hover:shadow-md transition-shadow">
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <Building className="w-16 h-16 text-[#0033A0]" />
+          </div>
+          <p className="text-xs font-bold text-slate-500 mb-1 z-10 uppercase tracking-wider">Total Empresas</p>
+          <h3 className="text-4xl font-black text-[#0033A0] z-10">{totalClients}</h3>
+          <p className="text-xs text-slate-400 mt-2 z-10 font-medium">Conteo general</p>
         </div>
-        <div>
-          <p className="text-sm font-medium text-slate-500">Total Clientes</p>
-          <h3 className="text-2xl font-bold text-slate-800">{totalClients}</h3>
+
+        {/* Alertas Críticas */}
+        <div className="bg-red-50 rounded-xl shadow-sm border border-red-200 p-5 flex flex-col relative overflow-hidden ring-1 ring-red-500/20 hover:shadow-md transition-shadow">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <span className="text-7xl">⚠️</span>
+          </div>
+          <p className="text-xs font-bold text-red-600 mb-1 z-10 uppercase tracking-wider flex items-center">
+            ⚠️ Alertas Críticas
+          </p>
+          <h3 className="text-4xl font-black text-red-700 z-10">{alertaCount}</h3>
+          <p className="text-xs text-red-500 mt-2 z-10 font-bold">+90 días en un mismo estado</p>
         </div>
-      </div>
-      
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <Activity className="w-5 h-5 text-slate-400" />
-          <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">Estado de Atención</h3>
+
+        {/* En Gestión */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col relative overflow-hidden hover:shadow-md transition-shadow">
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <Activity className="w-16 h-16 text-green-500" />
+          </div>
+          <p className="text-xs font-bold text-slate-500 mb-1 z-10 uppercase tracking-wider">📈 En Gestión</p>
+          <h3 className="text-4xl font-black text-green-600 z-10">{gestionActivaCount}</h3>
+          <p className="text-xs text-slate-400 mt-2 z-10 font-medium">'Planificado' o 'Seguimientos'</p>
         </div>
-        <div className="space-y-3">
-          {Object.entries(statusCounts).map(([status, count]) => (
-            <div key={status} className="flex justify-between items-center">
-              <span className={clsx("px-2.5 py-0.5 rounded-full text-xs font-medium border", getStatusColor(status))}>
-                {status}
-              </span>
-              <span className="text-sm font-medium text-slate-600">{count}</span>
-            </div>
-          ))}
+        
+        {/* Sin Gestión */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col relative overflow-hidden hover:shadow-md transition-shadow">
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <Users className="w-16 h-16 text-slate-500" />
+          </div>
+          <p className="text-xs font-bold text-slate-500 mb-1 z-10 uppercase tracking-wider">✅ Sin Gestión</p>
+          <h3 className="text-4xl font-black text-slate-700 z-10">{sinGestionCount}</h3>
+          <p className="text-xs text-slate-400 mt-2 z-10 font-medium">Pendientes de inicio</p>
         </div>
       </div>
 
+      {/* Planning Visual */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <Building className="w-5 h-5 text-slate-400" />
-          <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">Top Municipios</h3>
+        <h3 className="text-sm font-bold text-[#0033A0] uppercase tracking-wider mb-4 flex items-center">
+          <BarChart3 className="w-5 h-5 mr-2" /> Planning Visual - Distribución de Estados
+        </h3>
+        <div className="w-full h-8 flex rounded-full overflow-hidden mb-4 bg-slate-100">
+          <div style={{ width: `${(statusCounts['Sin gestión'] / (totalClients || 1)) * 100}%` }} className="bg-slate-300 transition-all duration-500" title={`Sin gestión: ${statusCounts['Sin gestión']}`}></div>
+          <div style={{ width: `${(statusCounts['Planificado'] / (totalClients || 1)) * 100}%` }} className="bg-[#00AEC7] transition-all duration-500" title={`Planificado: ${statusCounts['Planificado']}`}></div>
+          <div style={{ width: `${(statusCounts['Seguimiento inicial'] / (totalClients || 1)) * 100}%` }} className="bg-[#0033A0] transition-all duration-500" title={`Seguimiento inicial: ${statusCounts['Seguimiento inicial']}`}></div>
+          <div style={{ width: `${(statusCounts['Seguimiento avanzado'] / (totalClients || 1)) * 100}%` }} className="bg-green-500 transition-all duration-500" title={`Seguimiento avanzado: ${statusCounts['Seguimiento avanzado']}`}></div>
         </div>
-        <div className="space-y-3">
-          {cityCounts.map(([city, count]) => (
-            <div key={city} className="flex justify-between items-center">
-              <span className="text-sm text-slate-600 truncate mr-2" title={city}>{city}</span>
-              <span className="text-sm font-medium text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">{count}</span>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-medium text-slate-600">
+          <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-slate-300 mr-2"></div>Sin Gestión: {((statusCounts['Sin gestión'] / (totalClients || 1)) * 100 || 0).toFixed(1)}%</div>
+          <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-[#00AEC7] mr-2"></div>Planificado: {((statusCounts['Planificado'] / (totalClients || 1)) * 100 || 0).toFixed(1)}%</div>
+          <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-[#0033A0] mr-2"></div>Seg. Inicial: {((statusCounts['Seguimiento inicial'] / (totalClients || 1)) * 100 || 0).toFixed(1)}%</div>
+          <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>Seg. Avanzado: {((statusCounts['Seguimiento avanzado'] / (totalClients || 1)) * 100 || 0).toFixed(1)}%</div>
         </div>
       </div>
     </div>
@@ -125,6 +162,9 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [approachFilter, setApproachFilter] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+  const [activeTab, setActiveTab] = useState('general');
+  const [showOnlyUrgent, setShowOnlyUrgent] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
 
@@ -149,6 +189,7 @@ export default function App() {
 
   const uniqueStatuses = [...new Set(data.map(item => getVal(item, 'estado_de_atencion')).filter(Boolean))];
   const uniqueApproaches = [...new Set(data.map(item => getVal(item, 'tipo_de_abordaje')).filter(Boolean))];
+  const uniqueCities = [...new Set(data.map(item => getVal(item, 'municipio')).filter(Boolean))].sort();
 
   const filteredData = useMemo(() => {
     return data.filter(client => {
@@ -163,6 +204,7 @@ export default function App() {
       
       const statusValue = getVal(client, 'estado_de_atencion');
       const approachValue = getVal(client, 'tipo_de_abordaje');
+      const cityValue = getVal(client, 'municipio');
 
       const matchesStatus = statusFilter 
         ? (statusFilter === 'Sin gestión' 
@@ -170,20 +212,42 @@ export default function App() {
             : statusValue === statusFilter)
         : true;
       const matchesApproach = approachFilter ? approachValue === approachFilter : true;
+      const matchesCity = cityFilter ? cityValue === cityFilter : true;
 
-      return matchesSearch && matchesStatus && matchesApproach;
+      let matchesUrgent = true;
+      if (showOnlyUrgent) {
+        const statusValLower = String(statusValue || '').toLowerCase();
+        if (statusValLower === 'sin gestión' || statusValLower === 'sin estado' || !statusValLower) {
+          matchesUrgent = false;
+        } else {
+          const days = getDaysPassed(getVal(client, 'fecha_cambio_estado'));
+          if (days < 61) matchesUrgent = false;
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesApproach && matchesCity && matchesUrgent;
     });
-  }, [data, searchTerm, statusFilter, approachFilter]);
+  }, [data, searchTerm, statusFilter, approachFilter, cityFilter, showOnlyUrgent]);
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const urgentData = useMemo(() => {
+    return filteredData.filter(c => {
+      const status = String(getVal(c, 'estado_de_atencion') || '').toLowerCase();
+      const days = getDaysPassed(getVal(c, 'fecha_cambio_estado'));
+      return (status === 'planificado' || status === 'seguimiento inicial') && days > 90;
+    }).sort((a, b) => getDaysPassed(getVal(b, 'fecha_cambio_estado')) - getDaysPassed(getVal(a, 'fecha_cambio_estado')));
+  }, [filteredData]);
+
+  const currentViewData = activeTab === 'general' ? filteredData : urgentData;
+  const totalPages = Math.ceil(currentViewData.length / itemsPerPage);
+  
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return filteredData.slice(start, start + itemsPerPage);
-  }, [filteredData, currentPage]);
+    return currentViewData.slice(start, start + itemsPerPage);
+  }, [currentViewData, currentPage]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, approachFilter]);
+  }, [searchTerm, statusFilter, approachFilter, cityFilter, activeTab, showOnlyUrgent]);
 
   const updateClientStatus = async (clientToUpdate, newStatus) => {
     try {
@@ -234,7 +298,7 @@ export default function App() {
       <header className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="bg-blue-600 text-white p-2 rounded-lg">
+            <div className="bg-[#0033A0] text-white p-2 rounded-lg">
               <BarChart3 className="w-5 h-5" />
             </div>
             <h1 className="text-xl font-bold text-slate-800">CRM de Seguimiento ARL</h1>
@@ -249,7 +313,7 @@ export default function App() {
           </div>
         )}
 
-        {!loading && !error && <Dashboard data={data} />}
+        {!loading && !error && <Dashboard data={filteredData} />}
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
           <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 bg-slate-50">
@@ -259,7 +323,7 @@ export default function App() {
               </div>
               <input
                 type="text"
-                className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0033A0] focus:border-[#0033A0] sm:text-sm"
                 placeholder="Buscar por Empresa o Contrato..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -267,8 +331,30 @@ export default function App() {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4">
+              <button
+                onClick={() => setShowOnlyUrgent(!showOnlyUrgent)}
+                className={clsx(
+                  "px-4 py-2 text-sm font-bold rounded-lg border transition-all flex items-center justify-center whitespace-nowrap",
+                  showOnlyUrgent 
+                    ? "bg-orange-100 text-orange-700 border-orange-300 ring-2 ring-orange-500/20 shadow-inner" 
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 shadow-sm"
+                )}
+              >
+                <span className="mr-2">{showOnlyUrgent ? '🔥' : '⚡'}</span>
+                Ver Solo Urgentes
+              </button>
+
               <select
-                className="block w-full pl-3 pr-10 py-2 text-base border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg bg-white"
+                className="block w-full pl-3 pr-10 py-2 text-base border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0033A0] focus:border-[#0033A0] sm:text-sm rounded-lg bg-white"
+                value={cityFilter}
+                onChange={(e) => setCityFilter(e.target.value)}
+              >
+                <option value="">Todos los Municipios</option>
+                {uniqueCities.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+
+              <select
+                className="block w-full pl-3 pr-10 py-2 text-base border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0033A0] focus:border-[#0033A0] sm:text-sm rounded-lg bg-white"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -280,7 +366,7 @@ export default function App() {
               </select>
 
               <select
-                className="block w-full pl-3 pr-10 py-2 text-base border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg bg-white"
+                className="block w-full pl-3 pr-10 py-2 text-base border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0033A0] focus:border-[#0033A0] sm:text-sm rounded-lg bg-white"
                 value={approachFilter}
                 onChange={(e) => setApproachFilter(e.target.value)}
               >
@@ -288,6 +374,27 @@ export default function App() {
                 {uniqueApproaches.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
+          </div>
+
+          <div className="flex border-b border-slate-200 px-4 pt-4 bg-white">
+            <button
+              onClick={() => setActiveTab('general')}
+              className={clsx(
+                "px-4 py-2 font-semibold text-sm border-b-2 outline-none transition-colors",
+                activeTab === 'general' ? "border-[#0033A0] text-[#0033A0]" : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+              )}
+            >
+              Tabla General
+            </button>
+            <button
+              onClick={() => setActiveTab('urgentes')}
+              className={clsx(
+                "px-4 py-2 font-semibold text-sm border-b-2 outline-none transition-colors flex items-center",
+                activeTab === 'urgentes' ? "border-red-600 text-red-600" : "border-transparent text-slate-500 hover:text-red-500 hover:border-red-200"
+              )}
+            >
+              <span className="mr-2">🔔</span> Próximos a Vencer ({urgentData.length})
+            </button>
           </div>
 
           <div className="overflow-x-auto relative" style={{ maxHeight: '600px' }}>
@@ -328,20 +435,52 @@ export default function App() {
                           {getVal(client, 'municipio') || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={clsx("px-2.5 py-1 inline-flex text-xs leading-5 rounded-full border", getStatusColor(getVal(client, 'estado_de_atencion')))}>
-                            {getVal(client, 'estado_de_atencion') || '⚠️ Sin gestión'}
-                          </span>
-                          {(() => {
-                            const status = String(getVal(client, 'estado_de_atencion') || '').toLowerCase();
-                            const days = getDaysPassed(getVal(client, 'fecha_cambio_estado'));
-                            if (status === 'planificado' && days > 90) {
-                              return <div className="mt-1 text-xs text-red-600 font-bold bg-red-50 p-1 rounded">⚠️ Pasar a Seg. Inicial (+90d)</div>;
-                            }
-                            if (status === 'seguimiento inicial' && days > 90) {
-                              return <div className="mt-1 text-xs text-red-600 font-bold bg-red-50 p-1 rounded">⚠️ Pasar a Seg. Avanzado (+90d)</div>;
-                            }
-                            return null;
-                          })()}
+                          <div className="flex flex-col gap-2">
+                            <div>
+                              <span className={clsx("px-2.5 py-1 inline-flex text-xs leading-5 rounded-full border font-bold shadow-sm", getStatusColor(getVal(client, 'estado_de_atencion')))}>
+                                {getVal(client, 'estado_de_atencion') || '⚠️ Sin gestión'}
+                              </span>
+                            </div>
+                            {(() => {
+                              const status = String(getVal(client, 'estado_de_atencion') || '').toLowerCase();
+                              if (!getVal(client, 'fecha_cambio_estado') || status === 'sin gestión' || status === 'sin estado' || !status) return null;
+                              
+                              const days = getDaysPassed(getVal(client, 'fecha_cambio_estado'));
+                              
+                              let barColor = 'bg-slate-300';
+                              let text = `Lleva ${days} días`;
+                              
+                              if (days <= 30) {
+                                barColor = 'bg-green-500';
+                                text = `Lleva ${days} días`;
+                              } else if (days <= 60) {
+                                barColor = 'bg-yellow-400';
+                                text = `Lleva ${days} días`;
+                              } else if (days <= 89) {
+                                barColor = 'bg-orange-500';
+                                text = `Faltan ${90 - days} días para alerta`;
+                              } else {
+                                barColor = 'bg-red-600 animate-pulse shadow-[0_0_8px_rgba(220,38,38,0.8)]';
+                                text = `¡Alerta Crítica! Lleva ${days} días`;
+                              }
+                              
+                              const progress = Math.min((days / 90) * 100, 100);
+
+                              return (
+                                <div className="w-full max-w-[200px] mt-1">
+                                  <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden mb-1 ring-1 ring-slate-300/50 inset-shadow-sm">
+                                    <div 
+                                      className={clsx("h-full transition-all duration-1000 ease-out", barColor)} 
+                                      style={{ width: `${progress}%` }}
+                                    />
+                                  </div>
+                                  <span className={clsx("text-[10px] font-bold uppercase tracking-wider", days >= 90 ? "text-red-600" : "text-slate-500")}>
+                                    {text}
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
                           {getVal(client, 'tipo_de_abordaje') || '-'}
@@ -358,7 +497,7 @@ export default function App() {
             <div className="flex-1 flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-700">
-                  <span className="hidden sm:inline">Mostrando </span><span className="font-medium">{filteredData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> - <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredData.length)}</span> de <span className="font-medium">{filteredData.length}</span>
+                  <span className="hidden sm:inline">Mostrando </span><span className="font-medium">{currentViewData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> - <span className="font-medium">{Math.min(currentPage * itemsPerPage, currentViewData.length)}</span> de <span className="font-medium">{currentViewData.length}</span>
                 </p>
               </div>
               <div>
