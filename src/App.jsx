@@ -544,6 +544,8 @@ export default function App() {
                           <button 
                             onClick={(e) => { 
                               e.stopPropagation(); 
+                              console.log('Abriendo modal para:', client);
+                              setSelectedClient(null);
                               setEditingContactClient(client); 
                               setEditForm({ 
                                 telefono_1_id: getVal(client, 'telefono_1_id') || '', 
@@ -649,12 +651,15 @@ export default function App() {
                     <button 
                       onClick={(e) => { 
                         e.stopPropagation(); 
-                        setEditingContactClient(selectedClient); 
+                        console.log('Abriendo modal desde ficha para:', selectedClient);
+                        const clientToEdit = selectedClient;
+                        setSelectedClient(null);
+                        setEditingContactClient(clientToEdit); 
                         setEditForm({ 
-                          telefono_1_id: getVal(selectedClient, 'telefono_1_id') || '', 
-                          telefono_2_id: getVal(selectedClient, 'telefono_2_id') || '', 
-                          email_id: getVal(selectedClient, 'email_id') || '',
-                          estado_de_atencion: getVal(selectedClient, 'estado_de_atencion') || ''
+                          telefono_1_id: getVal(clientToEdit, 'telefono_1_id') || '', 
+                          telefono_2_id: getVal(clientToEdit, 'telefono_2_id') || '', 
+                          email_id: getVal(clientToEdit, 'email_id') || '',
+                          estado_de_atencion: getVal(clientToEdit, 'estado_de_atencion') || ''
                         });
                       }}
                       className="text-[#0033A0] hover:text-blue-800 p-1.5 rounded-md hover:bg-blue-50 transition-colors flex items-center text-xs font-bold"
@@ -754,16 +759,16 @@ export default function App() {
 
       {/* Edit Contact Modal */}
       {editingContactClient && (
-        <div className="fixed inset-0 z-[60] overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-[100] overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" aria-hidden="true" onClick={() => setEditingContactClient(null)}></div>
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" aria-hidden="true" onClick={() => setEditingContactClient(null)}></div>
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full relative z-[101]">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 border-b border-slate-100 flex justify-between items-center">
                 <h3 className="text-lg leading-6 font-bold text-slate-900" id="modal-title">
-                  Editar Contacto: <span className="text-[#0033A0]">{getVal(editingContactClient, 'empresa_nombre_comercial')}</span>
+                  Editar Contacto: <span className="text-[#0033A0]">{getVal(editingContactClient, 'empresa_nombre_comercial') || editingContactClient?.empresa_nombre_comercial || 'Empresa'}</span>
                 </h3>
-                <button onClick={() => setEditingContactClient(null)} className="text-slate-400 hover:text-slate-500 rounded-full p-1 hover:bg-slate-100 transition-colors">
+                <button type="button" onClick={() => setEditingContactClient(null)} className="text-slate-400 hover:text-slate-500 rounded-full p-1 hover:bg-slate-100 transition-colors focus:outline-none">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -773,7 +778,7 @@ export default function App() {
                     <label className="block text-sm font-medium text-slate-700">Estado de Atención</label>
                     <select 
                       className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#0033A0] focus:border-[#0033A0] sm:text-sm font-medium bg-slate-50"
-                      value={editForm.estado_de_atencion}
+                      value={editForm?.estado_de_atencion || ''}
                       onChange={(e) => setEditForm({...editForm, estado_de_atencion: e.target.value})}
                     >
                       <option value="">Seleccionar...</option>
@@ -792,7 +797,7 @@ export default function App() {
                       title="Solo se permiten números"
                       placeholder="Ej: 3001234567"
                       className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#0033A0] focus:border-[#0033A0] sm:text-sm"
-                      value={editForm.telefono_1_id}
+                      value={editForm?.telefono_1_id || ''}
                       onChange={(e) => setEditForm({...editForm, telefono_1_id: e.target.value.replace(/\D/g, '')})}
                     />
                   </div>
@@ -803,7 +808,7 @@ export default function App() {
                       pattern="[0-9]*"
                       title="Solo se permiten números"
                       className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#0033A0] focus:border-[#0033A0] sm:text-sm"
-                      value={editForm.telefono_2_id}
+                      value={editForm?.telefono_2_id || ''}
                       onChange={(e) => setEditForm({...editForm, telefono_2_id: e.target.value.replace(/\D/g, '')})}
                     />
                   </div>
@@ -814,23 +819,23 @@ export default function App() {
                       required
                       placeholder="correo@empresa.com"
                       className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#0033A0] focus:border-[#0033A0] sm:text-sm"
-                      value={editForm.email_id}
+                      value={editForm?.email_id || ''}
                       onChange={(e) => setEditForm({...editForm, email_id: e.target.value})}
                     />
                   </div>
                 </div>
-                <div className="bg-slate-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-slate-100">
+                <div className="bg-slate-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-slate-100 rounded-b-xl">
                   <button 
                     type="submit" 
                     disabled={isSaving}
-                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#0033A0] text-base font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0033A0] sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 transition-colors"
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#0033A0] text-base font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0033A0] sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 transition-colors relative z-10"
                   >
                     {isSaving ? 'Guardando...' : 'Guardar Cambios'}
                   </button>
                   <button 
                     type="button" 
                     onClick={() => setEditingContactClient(null)}
-                    className="mt-3 w-full inline-flex justify-center rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0033A0] sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
+                    className="mt-3 w-full inline-flex justify-center rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0033A0] sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-colors relative z-10"
                   >
                     Cancelar
                   </button>
