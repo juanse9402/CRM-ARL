@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, Phone, Mail, ChevronLeft, ChevronRight, BarChart3, Users, Building, Activity, X } from 'lucide-react';
+import { Search, Filter, Phone, Mail, ChevronLeft, ChevronRight, BarChart3, Users, Building, Activity, X, Pencil } from 'lucide-react';
 import clsx from 'clsx';
 import { supabase } from './supabase';
 
@@ -169,6 +169,16 @@ export default function App() {
   const itemsPerPage = 15;
 
   const [selectedClient, setSelectedClient] = useState(null);
+  
+  const [editingContactClient, setEditingContactClient] = useState(null);
+  const [editForm, setEditForm] = useState({ telefono_1_id: '', telefono_2_id: '', email_id: '', estado_de_atencion: '' });
+  const [isSaving, setIsSaving] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 3000);
+  };
 
   const fetchData = async () => {
     try {
@@ -276,6 +286,50 @@ export default function App() {
     } catch (err) {
       console.error(err);
       alert('Error al actualizar el estado en Supabase.');
+    }
+  };
+
+  const handleSaveContact = async (e) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      const prevStatus = getVal(editingContactClient, 'estado_de_atencion');
+      const statusChanged = prevStatus !== editForm.estado_de_atencion;
+      
+      let estadoKey = 'estado_de_atencion';
+      if (editingContactClient['Estado de Atención'] !== undefined) estadoKey = 'Estado de Atención';
+
+      const updatePayload = {
+        telefono_1_id: editForm.telefono_1_id,
+        telefono_2_id: editForm.telefono_2_id || null,
+        email_id: editForm.email_id,
+        [estadoKey]: editForm.estado_de_atencion
+      };
+      
+      if (statusChanged) {
+        updatePayload.fecha_cambio_estado = new Date().toISOString();
+      }
+      
+      const { error } = await supabase
+        .from('clientes')
+        .update(updatePayload)
+        .eq('id', editingContactClient.id);
+
+      if (error) throw error;
+
+      setData(prev => prev.map(c => c.id === editingContactClient.id ? { ...c, ...updatePayload } : c));
+      
+      if (selectedClient && selectedClient.id === editingContactClient.id) {
+        setSelectedClient({ ...selectedClient, ...updatePayload });
+      }
+      
+      setEditingContactClient(null);
+      showToast(statusChanged ? '¡Datos y estado actualizados!' : '¡Datos de contacto actualizados!');
+    } catch (err) {
+      console.error(err);
+      alert('Error al actualizar los datos.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -409,6 +463,7 @@ export default function App() {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Municipio</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Estado de Atención</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Abordaje</th>
+                    <th scope="col" className="relative px-6 py-3"><span className="sr-only">Acciones</span></th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-100">
@@ -484,6 +539,24 @@ export default function App() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
                           {getVal(client, 'tipo_de_abordaje') || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              setEditingContactClient(client); 
+                              setEditForm({ 
+                                telefono_1_id: getVal(client, 'telefono_1_id') || '', 
+                                telefono_2_id: getVal(client, 'telefono_2_id') || '', 
+                                email_id: getVal(client, 'email_id') || '',
+                                estado_de_atencion: getVal(client, 'estado_de_atencion') || ''
+                              });
+                            }}
+                            className="text-slate-400 hover:text-[#0033A0] p-2 rounded-full hover:bg-blue-50 transition-colors"
+                            title="Editar Contacto"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -649,6 +722,102 @@ export default function App() {
                 </div>
               </div>
               
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-[100] font-medium animate-bounce flex items-center">
+          <span className="mr-2">✅</span> {toastMessage}
+        </div>
+      )}
+
+      {/* Edit Contact Modal */}
+      {editingContactClient && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" aria-hidden="true" onClick={() => setEditingContactClient(null)}></div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 className="text-lg leading-6 font-bold text-slate-900" id="modal-title">
+                  Editar Contacto: <span className="text-[#0033A0]">{getVal(editingContactClient, 'empresa_nombre_comercial')}</span>
+                </h3>
+                <button onClick={() => setEditingContactClient(null)} className="text-slate-400 hover:text-slate-500 rounded-full p-1 hover:bg-slate-100 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <form onSubmit={handleSaveContact}>
+                <div className="px-4 py-5 sm:p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">Estado de Atención</label>
+                    <select 
+                      className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#0033A0] focus:border-[#0033A0] sm:text-sm font-medium bg-slate-50"
+                      value={editForm.estado_de_atencion}
+                      onChange={(e) => setEditForm({...editForm, estado_de_atencion: e.target.value})}
+                    >
+                      <option value="">Seleccionar...</option>
+                      <option value="Sin gestión">Sin gestión</option>
+                      <option value="Planificado">Planificado</option>
+                      <option value="Seguimiento inicial">Seguimiento inicial</option>
+                      <option value="Seguimiento avanzado">Seguimiento avanzado</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">Teléfono 1</label>
+                    <input 
+                      type="tel" 
+                      required
+                      pattern="[0-9]+"
+                      title="Solo se permiten números"
+                      placeholder="Ej: 3001234567"
+                      className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#0033A0] focus:border-[#0033A0] sm:text-sm"
+                      value={editForm.telefono_1_id}
+                      onChange={(e) => setEditForm({...editForm, telefono_1_id: e.target.value.replace(/\D/g, '')})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">Teléfono 2 (Opcional)</label>
+                    <input 
+                      type="tel" 
+                      pattern="[0-9]*"
+                      title="Solo se permiten números"
+                      className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#0033A0] focus:border-[#0033A0] sm:text-sm"
+                      value={editForm.telefono_2_id}
+                      onChange={(e) => setEditForm({...editForm, telefono_2_id: e.target.value.replace(/\D/g, '')})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">Correo Electrónico</label>
+                    <input 
+                      type="email" 
+                      required
+                      placeholder="correo@empresa.com"
+                      className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#0033A0] focus:border-[#0033A0] sm:text-sm"
+                      value={editForm.email_id}
+                      onChange={(e) => setEditForm({...editForm, email_id: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div className="bg-slate-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-slate-100">
+                  <button 
+                    type="submit" 
+                    disabled={isSaving}
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#0033A0] text-base font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0033A0] sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 transition-colors"
+                  >
+                    {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setEditingContactClient(null)}
+                    className="mt-3 w-full inline-flex justify-center rounded-md border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0033A0] sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
