@@ -334,17 +334,33 @@ export default function App() {
   };
 
   const getWhatsAppLink = (phone, empresaName, status) => {
-    const cleanPhone = formatPhoneForWhatsApp(phone);
+    let cleanPhone = formatPhoneForWhatsApp(phone);
+    if (cleanPhone && !cleanPhone.startsWith('57')) {
+      cleanPhone = '57' + cleanPhone;
+    }
     const s = String(status || '').toLowerCase();
-    let text = `Hola, ${empresaName}. Le escribimos de la ARL para realizar seguimiento...`;
+    const nombreEmpresa = String(empresaName || '').toUpperCase();
+    let text = '';
 
-    if (s === 'planificado') {
-      text = `Hola, ${empresaName}. Habla Carolina Lozada, prevencionista de ARL SURA. Me contacto para coordinar una reunión para revisar necesidades en seguridad y salud en el trabajo y definir el plan de trabajo con su empresa. Quedo atenta para programarla según su disponibilidad.`;
-    } else if (s === 'seguimiento inicial' || s === 'seguimiento avanzado') {
-      text = `Hola, ${empresaName}. Me encuentro realizando seguimiento al plan de trabajo acordado con ARL SURA y validando su avance. Si tienen actividades pendientes o requieren apoyo, quedo atenta para gestionarlo.`;
+    if (s === 'seguimiento inicial' || s === 'seguimiento avanzado') {
+      text = `Hola, ${nombreEmpresa}.\n\nMe encuentro realizando seguimiento al plan de trabajo acordado con ARL SURA y validando su avance.\n\nSi tienen actividades pendientes o requieren apoyo, quedo atenta para gestionarlo.`;
+    } else {
+      text = `Hola, ${nombreEmpresa}.\n\nHabla Carolina Lozada, prevencionista de ARL SURA. Me contacto para coordinar una reunión para revisar necesidades en seguridad y salud en el trabajo y definir el plan de trabajo con su empresa.\n\nQuedo atenta para programarla según su disponibilidad.`;
     }
 
-    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+    const encodedText = encodeURIComponent(text);
+
+    // Si estamos en un dispositivo Android, intentamos forzar WhatsApp Business usando un Intent
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    
+    if (isAndroid) {
+      // El S.browser_fallback_url ayuda a que, si no está la versión Business, intente abrir la versión normal
+      const fallbackUrl = encodeURIComponent(`whatsapp://send?phone=${cleanPhone}&text=${encodedText}`);
+      return `intent://send?phone=${cleanPhone}&text=${encodedText}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=${fallbackUrl};end`;
+    }
+
+    // Para iOS, escritorio o si falla lo anterior, usamos el protocolo directo de la app en lugar de https://wa.me/
+    return `whatsapp://send?phone=${cleanPhone}&text=${encodedText}`;
   };
 
   return (
@@ -716,18 +732,23 @@ export default function App() {
                   )}
 
                   {/* Email Botón */}
-                  {getVal(selectedClient, 'email_id') && (
-                    <div className="flex flex-col space-y-2 mt-4">
-                      <span className="text-xs text-slate-500">Correo: {getVal(selectedClient, 'email_id')}</span>
+                  <div className="flex flex-col space-y-2 mt-4">
+                    <span className="text-xs text-slate-500">Correo: {getVal(selectedClient, 'email_id') || 'No registrado'}</span>
+                    {getVal(selectedClient, 'email_id') ? (
                       <a 
-                        href={`mailto:${getVal(selectedClient, 'email_id')}?subject=${encodeURIComponent(`Seguimiento ARL - ${getVal(selectedClient, 'empresa_nombre_comercial')}`)}`}
-                        className="inline-flex items-center justify-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        href={`mailto:${getVal(selectedClient, 'email_id')}?subject=${encodeURIComponent(`Seguimiento ARL SURA - ${String(getVal(selectedClient, 'empresa_nombre_comercial') || '').toUpperCase()}`)}&body=${encodeURIComponent(`Cordial saludo, equipo de ${String(getVal(selectedClient, 'empresa_nombre_comercial') || '').toUpperCase()}.\n\nMi nombre es Carolina Lozada, prevencionista de ARL SURA. Me pongo en contacto con ustedes para realizar el seguimiento del plan de trabajo acordado.\n\nQuedo atenta a sus comentarios o disponibilidad para una breve reunión.\n\nAtentamente,\nCarolina Lozada.`)}`}
+                        className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#0033A0] hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0033A0] transition-colors"
                       >
-                        <Mail className="w-4 h-4 mr-2 text-slate-400" />
+                        <Mail className="w-4 h-4 mr-2 text-white" />
                         Enviar Correo
                       </a>
-                    </div>
-                  )}
+                    ) : (
+                      <button disabled className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-slate-400 bg-slate-100 cursor-not-allowed">
+                        <Mail className="w-4 h-4 mr-2 opacity-50" />
+                        Correo no disponible
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-4 pt-4">
