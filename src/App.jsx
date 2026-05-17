@@ -772,8 +772,10 @@ export default function App() {
                           rel="noopener noreferrer"
                           className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#0033A0] hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0033A0] transition-colors"
                         >
-                          <Mail className="w-4 h-4 mr-2 text-white" />
-                          Enviar Correo (Outlook)
+                          <svg className="w-4 h-4 mr-2 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M24 7.387v10.478c0 .23-.08.424-.238.576-.16.154-.352.23-.578.23h-8.26v-8.324l1.936 1.46 1.248-.91V9.14l-1.248.91-1.936-1.46V5.328h8.26c.226 0 .418.076.578.23.158.152.238.346.238.576v1.254zM14.924 18.67H1.3c-.226 0-.418-.076-.578-.23A.775.775 0 0 1 .484 17.864V5.387c0-.23.08-.424.238-.576.16-.154.352-.23.578-.23h13.624c.226 0 .418.076.578.23.158.152.238.346.238.576V17.865c0 .23-.08.424-.238.576a.788.788 0 0 1-.578.23zM8.112 7.553c-1.07 0-1.937.383-2.6 1.148-.664.766-.996 1.752-.996 2.96 0 1.237.32 2.24.96 3.01.64.77 1.483 1.155 2.528 1.155 1.08 0 1.96-.373 2.638-1.12.678-.746 1.018-1.734 1.018-2.964 0-1.28-.324-2.29-.972-3.033-.648-.744-1.51-1.116-2.576-1.156zm-.08 1.384c.634 0 1.13.26 1.49.783.358.522.538 1.214.538 2.076 0 .87-.18 1.572-.542 2.104-.36.533-.86.8-1.496.8-.618 0-1.108-.27-1.47-.808-.362-.54-.542-1.233-.542-2.08 0-.88.176-1.583.528-2.107.352-.523.844-.768 1.494-.768z"/>
+                          </svg>
+                          Enviar por Outlook Web ↗
                         </a>
                         <button
                           type="button"
