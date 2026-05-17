@@ -761,19 +761,19 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Email Botón */}
+                  {/* Email Botón - Outlook Web */}
                   <div className="flex flex-col space-y-2 mt-4">
                     <span className="text-xs text-slate-500">Correo: {getVal(selectedClient, 'email_id') || 'No registrado'}</span>
                     {getVal(selectedClient, 'email_id') ? (
                       <>
                         <a 
-                          href={`mailto:${getVal(selectedClient, 'email_id')}?subject=${encodeURIComponent(`Seguimiento ARL SURA - ${String(getVal(selectedClient, 'empresa_nombre_comercial') || '').toUpperCase()}`)}&body=${encodeURIComponent(`Cordial saludo, equipo de ${String(getVal(selectedClient, 'empresa_nombre_comercial') || '').toUpperCase()}.\n\nMi nombre es Carolina Lozada, prevencionista de ARL SURA. Me pongo en contacto con ustedes para realizar el seguimiento del plan de trabajo acordado.\n\nQuedo atenta a sus comentarios o disponibilidad para una breve reunión.\n\nAtentamente,\nCarolina Lozada.`)}`}
+                          href={`https://outlook.cloud.microsoft/mail/deeplink/compose?to=${encodeURIComponent(getVal(selectedClient, 'email_id'))}&subject=${encodeURIComponent(`Seguimiento ARL SURA - ${String(getVal(selectedClient, 'empresa_nombre_comercial') || '').toUpperCase()}`)}&body=${encodeURIComponent(`Cordial saludo, equipo de ${String(getVal(selectedClient, 'empresa_nombre_comercial') || '').toUpperCase()}.\n\nMi nombre es Carolina Lozada, prevencionista de ARL SURA. Me pongo en contacto con ustedes para realizar el seguimiento del plan de trabajo acordado.\n\nQuedo atenta a sus comentarios o disponibilidad para una breve reunión.\n\nAtentamente,\nCarolina Lozada.`)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#0033A0] hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0033A0] transition-colors"
                         >
                           <Mail className="w-4 h-4 mr-2 text-white" />
-                          Enviar Correo
+                          Enviar Correo (Outlook)
                         </a>
                         <button
                           type="button"
