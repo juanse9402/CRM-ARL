@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Filter, Phone, Mail, ChevronLeft, ChevronRight, BarChart3, Users, Building, Activity, X, Pencil } from 'lucide-react';
+import { Search, Filter, Phone, Mail, ChevronLeft, ChevronRight, BarChart3, Users, Building, Activity, X, Pencil, Copy } from 'lucide-react';
 import clsx from 'clsx';
 import { supabase } from './supabase';
 
@@ -333,6 +333,11 @@ export default function App() {
     }
   };
 
+  // Detectar si el usuario está en un dispositivo móvil
+  const isMobileDevice = () => {
+    return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  };
+
   const getWhatsAppLink = (phone, empresaName, status) => {
     let cleanPhone = formatPhoneForWhatsApp(phone);
     if (cleanPhone && !cleanPhone.startsWith('57')) {
@@ -350,17 +355,42 @@ export default function App() {
 
     const encodedText = encodeURIComponent(text);
 
-    // Si estamos en un dispositivo Android, intentamos forzar WhatsApp Business usando un Intent
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    
-    if (isAndroid) {
-      // El S.browser_fallback_url ayuda a que, si no está la versión Business, intente abrir la versión normal
-      const fallbackUrl = encodeURIComponent(`whatsapp://send?phone=${cleanPhone}&text=${encodedText}`);
-      return `intent://send?phone=${cleanPhone}&text=${encodedText}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=${fallbackUrl};end`;
+    if (isMobileDevice()) {
+      // En móviles: usar el protocolo directo de la app
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      if (isAndroid) {
+        const fallbackUrl = encodeURIComponent(`https://wa.me/${cleanPhone}?text=${encodedText}`);
+        return `intent://send?phone=${cleanPhone}&text=${encodedText}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url=${fallbackUrl};end`;
+      }
+      // iOS u otro móvil
+      return `https://wa.me/${cleanPhone}?text=${encodedText}`;
     }
 
-    // Para iOS, escritorio o si falla lo anterior, usamos el protocolo directo de la app en lugar de https://wa.me/
-    return `whatsapp://send?phone=${cleanPhone}&text=${encodedText}`;
+    // En computadores: usar WhatsApp Web para evitar bloqueos de protocolo
+    return `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedText}`;
+  };
+
+  // Copiar texto al portapapeles con feedback visual
+  const copyToClipboard = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(`📋 ${label} copiado al portapapeles`);
+    } catch (err) {
+      // Fallback para navegadores que no soportan clipboard API
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        showToast(`📋 ${label} copiado al portapapeles`);
+      } catch (e) {
+        showToast('❌ No se pudo copiar. Copia manualmente: ' + text);
+      }
+      document.body.removeChild(textArea);
+    }
   };
 
   return (
@@ -735,13 +765,25 @@ export default function App() {
                   <div className="flex flex-col space-y-2 mt-4">
                     <span className="text-xs text-slate-500">Correo: {getVal(selectedClient, 'email_id') || 'No registrado'}</span>
                     {getVal(selectedClient, 'email_id') ? (
-                      <a 
-                        href={`mailto:${getVal(selectedClient, 'email_id')}?subject=${encodeURIComponent(`Seguimiento ARL SURA - ${String(getVal(selectedClient, 'empresa_nombre_comercial') || '').toUpperCase()}`)}&body=${encodeURIComponent(`Cordial saludo, equipo de ${String(getVal(selectedClient, 'empresa_nombre_comercial') || '').toUpperCase()}.\n\nMi nombre es Carolina Lozada, prevencionista de ARL SURA. Me pongo en contacto con ustedes para realizar el seguimiento del plan de trabajo acordado.\n\nQuedo atenta a sus comentarios o disponibilidad para una breve reunión.\n\nAtentamente,\nCarolina Lozada.`)}`}
-                        className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#0033A0] hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0033A0] transition-colors"
-                      >
-                        <Mail className="w-4 h-4 mr-2 text-white" />
-                        Enviar Correo
-                      </a>
+                      <>
+                        <a 
+                          href={`mailto:${getVal(selectedClient, 'email_id')}?subject=${encodeURIComponent(`Seguimiento ARL SURA - ${String(getVal(selectedClient, 'empresa_nombre_comercial') || '').toUpperCase()}`)}&body=${encodeURIComponent(`Cordial saludo, equipo de ${String(getVal(selectedClient, 'empresa_nombre_comercial') || '').toUpperCase()}.\n\nMi nombre es Carolina Lozada, prevencionista de ARL SURA. Me pongo en contacto con ustedes para realizar el seguimiento del plan de trabajo acordado.\n\nQuedo atenta a sus comentarios o disponibilidad para una breve reunión.\n\nAtentamente,\nCarolina Lozada.`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#0033A0] hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0033A0] transition-colors"
+                        >
+                          <Mail className="w-4 h-4 mr-2 text-white" />
+                          Enviar Correo
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(getVal(selectedClient, 'email_id'), 'Correo')}
+                          className="inline-flex items-center justify-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0033A0] transition-colors"
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copiar correo al portapapeles
+                        </button>
+                      </>
                     ) : (
                       <button disabled className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-slate-400 bg-slate-100 cursor-not-allowed">
                         <Mail className="w-4 h-4 mr-2 opacity-50" />
